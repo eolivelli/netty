@@ -64,30 +64,12 @@ public final class SystemPropertyUtil {
         if (originalName.equals(currentName)) {
             return "";
         }
-        String detectRelocationProperty = composeUnrelocatableString("io.","netty.","internal.","detectRelocation");
-        boolean usePrefix = Boolean.parseBoolean(get0("",detectRelocationProperty, "true"));
-        if (!usePrefix) {
-            logger.warn("Detected a relocated version of Netty ({}), "
-                    + "but {} is disabled" , currentName, detectRelocationProperty);
-            return "";
-        }
-        // strip the original name, and try to keep the prefix injected by the relocation
-        // "io.netty.util.internal.SystemPropertyUtil" -> ""
-        // "mylib.io.netty.util.internal.SystemPropertyUtil" -> "mylib."
-        // "mylib.nettyshaded.util.internal.SystemPropertyUtil" -> "mylib.nettyshaded."
-        String result = currentName
-                .replace(originalName, "") // common case
-                .replace("io.", "")
-                .replace("netty.", "")
-                .replace("util.internal.", "")
-                .replace("SystemPropertyUtil", "");
-        if (!result.isEmpty()) {
-            logger.warn("Detected a relocated version of netty, "
-                    + "prefix '{}' will be prepended to every system property for this instance of Netty."
+        logger.warn("Detected a relocated version of netty, "
+                    + "'{}' has been rewritten to '{}' will be prepended to every system property for this instance of Netty."
                     + "The final result depends on the utility used to repackage netty."
-                    + "See the logs in order to see the actual name of system properties", result);
-        }
-        return result;
+                    + "See the logs in order to see the actual name of system properties", originalName, currentName);
+        
+        return "";
     }
 
     /**
@@ -100,12 +82,7 @@ public final class SystemPropertyUtil {
      * @see #computePrefix(java.lang.String, java.lang.String)
      */
     public static String propertyName(String key) {
-        if (isNettyProperty(key)) {
-            logger.warn("relocate "+ key + " to "+SYSTEM_PROPERTIES_PREFIX + key+" ("+SYSTEM_PROPERTIES_PREFIX+")");
-            return SYSTEM_PROPERTIES_PREFIX + key;
-        } else {
-            return key;
-        }
+        return key;        
     }
 
     /**
