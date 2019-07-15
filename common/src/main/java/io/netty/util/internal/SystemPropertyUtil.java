@@ -44,45 +44,39 @@ public final class SystemPropertyUtil {
         return res.toString();
     }
 
-    private static final String SYSTEM_PROPERTIES_PREFIX =
-            computePrefix(
-                    composeUnrelocatableString("io.","netty.","util.internal.SystemPropertyUtil"),
-                    SystemPropertyUtil.class.getName());
-
+    static {
+        detectRelocation(
+            composeUnrelocatableString("io.","netty.","util.internal.SystemPropertyUtil"),
+            SystemPropertyUtil.class.getName());
+    }
     /**
      * Try to detect that Netty has been relocated to a different package name.
-     * In that case we compute a prefix to prepend to every Netty system property.
      * When you are relocating Netty classes you want an isolated version of Netty
-     * with its own set of settings. As Netty is configurable with System properties
-     * we have to provide a way to shield the relocated version of Netty by system wide settings.
-     *
-     * @param originalName the original name of the class inside Netty codebase.
-     * @param currentName the actual name of this class, that could have been repackaged with a different package name.
-     * @return the prefix, empty string in case we are running the original version of Netty.
+     * with its own set of settings.
      */
-    static String computePrefix(String originalName, final String currentName) {
+    static void detectRelocation(String originalName, final String currentName) {
         if (originalName.equals(currentName)) {
-            return "";
+            return;
         }
-        logger.warn("Detected a relocated version of netty, "
+        logger.info("Detected a relocated version of netty, "
                     + "'{}' has been rewritten to '{}' will be prepended to every system property for this instance of Netty."
                     + "The final result depends on the utility used to repackage netty."
                     + "See the logs in order to see the actual name of system properties", originalName, currentName);
-        
-        return "";
     }
 
     /**
-     * Compute the actual name of a system property that is in use.
-     * This method is used while logging system property values.
+     * This is a dummy method that echoes the passed value.
+     * Relocation tools rewrite all of the string constants
+     * and so we won't see here the original io.netty.xxx
+     * property names but those names after the transformation.
      *
      * @param key
      *
-     * @return the key prepended by {@link #SYSTEM_PROPERTIES_PREFIX}
-     * @see #computePrefix(java.lang.String, java.lang.String)
+     * @return the same key
+     * @see #detectRelocation(java.lang.String, java.lang.String)
      */
     public static String propertyName(String key) {
-        return key;        
+        return key;
     }
 
     /**
@@ -114,40 +108,26 @@ public final class SystemPropertyUtil {
      *         specified property is not allowed.
      */
     public static String get(final String key, final String def) {
-        return get0(SYSTEM_PROPERTIES_PREFIX, key, def);
-    }
-
-    private static boolean isNettyProperty(String key) {
-        // we have to handle only Netty properties, not stuff like "java.net.preferIPv4Stack" or "os.name"
-        return key.startsWith("io.netty");
-    }
-
-    private static String get0(final String prefix, final String key, String def) {
         if (key == null) {
             throw new NullPointerException("key");
-        }
-        if (prefix == null) {
-            throw new NullPointerException("prefix");
         }
         if (key.isEmpty()) {
             throw new IllegalArgumentException("key must not be empty.");
         }
-        boolean isNettyProperty = isNettyProperty(key);
-        final String prefixedKey = isNettyProperty ? prefix + key : key;
         String value = null;
         try {
             if (System.getSecurityManager() == null) {
-                value = System.getProperty(prefixedKey);
+                value = System.getProperty(key);
             } else {
                 value = AccessController.doPrivileged(new PrivilegedAction<String>() {
                     @Override
                     public String run() {
-                        return System.getProperty(prefixedKey);
+                        return System.getProperty(key);
                     }
                 });
             }
         } catch (SecurityException e) {
-            logger.warn("Unable to retrieve a system property '{}'; default values will be used.", prefixedKey, e);
+            logger.warn("Unable to retrieve a system property '{}'; default values will be used.", key, e);
         }
 
         if (value == null) {
